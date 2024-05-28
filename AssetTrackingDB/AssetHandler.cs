@@ -55,8 +55,8 @@ namespace AssetTracking
                         AddAssets();
                         break;
                     case "2":
-                        var assetList = context.Assets.Include(x => x.Office).ToList();
-                        PrintAssets(assetList, true);
+                        var assetList = GetAssetList("Connecting to DB...");
+                        SortAndPrintAssets(assetList, true);
                         PressAnyKey();
                         break;
                     case "3":
@@ -71,6 +71,37 @@ namespace AssetTracking
                         return;
                 }
             }
+        }
+
+        public List<Asset>? GetAssetList(string message)
+        {
+            var token = ShowLoadingAnimation(message);
+            var list = context.Assets.Include(x => x.Office).ToList();
+            token.Cancel();
+            return list;
+        }
+
+        public static CancellationTokenSource ShowLoadingAnimation(string message)
+        {
+            var cancellationTokenSource = new CancellationTokenSource();
+            var token = cancellationTokenSource.Token;
+            Task.Run(async () =>
+            {
+                var animationChars = new[] { '-', '/', '|', '\\' };
+                var currentCharIndex = 0;
+                Console.ForegroundColor = ConsoleColor.DarkGreen;
+                Console.Write(message);
+
+                while (!token.IsCancellationRequested)
+                {
+                    Console.Write(animationChars[currentCharIndex]);
+                    currentCharIndex = (currentCharIndex + 1) % animationChars.Length;
+                    await Task.Delay(100); // Adjust delay as necessary
+                    Console.Write("\b");
+                }
+            }, token);
+
+            return cancellationTokenSource;
         }
 
         public void PressAnyKey()
@@ -90,22 +121,23 @@ namespace AssetTracking
 
         public void DeleteAssets()
         {
-            var assetList = context.Assets.Include(x => x.Office).ToList();
+            List<Asset> assetList = GetAssetList("Loading database....");
 
             while (true)
             {
-                PrintAssets(assetList, true);
+                var sortedAssets = SortAndPrintAssets(assetList, true);
+
                 Console.Write("\nWhich asset do you want to delete? (Q to quit) ");
                 var numberString = PromptInput();
                 if (int.TryParse(numberString, out int parsedNumber))
                 {
-                    if (parsedNumber > 0 && parsedNumber <= assetList.Count())
+                    if (parsedNumber > 0 && parsedNumber <= sortedAssets.Count())
                     {
                         PrintMainHeader();
-                        PrintOneAssetWithHeader(assetList[parsedNumber - 1]);
+                        PrintOneAssetWithHeader(sortedAssets[parsedNumber - 1]);
                         if (AskUserConfirmation("\n\nAre you sure you want to delete this asset?", "Deletion aborted."))
                         {
-                            var asset = context.Assets.Remove(assetList[parsedNumber - 1]);
+                            var asset = context.Assets.Remove(sortedAssets[parsedNumber - 1]);
                             UpdateDatabase("Asset deleted from database!", "Error deleting asset from DB");
                             return;
                         }
@@ -403,7 +435,7 @@ namespace AssetTracking
             }
         }
 
-        public void PrintAssets(List<Asset> assetList, bool numbered = false)
+        public List<Asset> SortAndPrintAssets(List<Asset> assetList, bool numbered = false)
         {
             PrintMainHeader();
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -422,6 +454,8 @@ namespace AssetTracking
                 PrintAssetDetails(asset);
                 index++;
             }
+
+            return sortedAssets;
         }
     }
 }
