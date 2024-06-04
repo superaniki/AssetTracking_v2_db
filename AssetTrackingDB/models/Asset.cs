@@ -5,7 +5,7 @@ namespace AssetTracking;
 
 
 
-public class Asset
+public class Asset : ICloneable
 {
   public enum ExpirationStatus
   {
@@ -65,6 +65,18 @@ public class Asset
     else
       Status = Asset.ExpirationStatus.Overdue; // white
 
+  }
+
+
+  public object Clone()
+  {
+    // Assuming Office class implements ICloneable
+    //Office clonedOffice = (Office)Office.Clone();
+
+    return new Asset(Id, Brand, Model, DateOfPurchase, Price, Office)
+    {
+      OfficeId = this.OfficeId
+    };
   }
 }
 

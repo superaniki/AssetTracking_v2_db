@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using AssetTracking;
 using EntityDBTest;
@@ -38,8 +39,10 @@ namespace AssetTracking
             while (true)
             {
                 PrintMainHeader();
-                Console.ForegroundColor = ConsoleColor.White;
+                Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine("What do you want to do?");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("-------------------");
                 Console.WriteLine("1. Add Assets");
                 Console.WriteLine("2. List Assets");
                 Console.WriteLine("3. Update Assets");
@@ -60,7 +63,7 @@ namespace AssetTracking
                         PressAnyKey();
                         break;
                     case "3":
-                        DeleteAssets();
+                        UpdateAssets();
                         break;
                     case "4":
                         DeleteAssets();
@@ -110,14 +113,140 @@ namespace AssetTracking
             Console.ReadKey();
         }
 
-        public static string? PromptInput()
+        public static string? PromptInput(bool withSkip = false)
         {
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.Write("> ");
             Console.ResetColor();
+            if (withSkip)
+                return ReadLineWithSkip();
             return Console.ReadLine();
         }
 
+        static string ReadLineWithSkip()
+        {
+            StringBuilder input = new StringBuilder();
+            while (true)
+            {
+                var keyInfo = Console.ReadKey(intercept: true); // Read key without displaying it
+                if (keyInfo.Key == ConsoleKey.Enter)
+                {
+                    if (input.Length == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkCyan; ;
+
+                        Console.Write(" - skip - ");
+                        Console.ResetColor();
+
+                    }
+                    Console.WriteLine(); // Move to the next line
+                    break;
+                }
+                else if (keyInfo.Key == ConsoleKey.Backspace && input.Length > 0)
+                {
+                    // Handle backspace
+                    input.Length--;
+                    Console.Write("\b \b"); // Move the cursor back, print space, and move back again
+                }
+                else if (keyInfo.Key != ConsoleKey.Backspace)
+                {
+                    input.Append(keyInfo.KeyChar);
+                    Console.Write(keyInfo.KeyChar); // Display the character
+                }
+            }
+
+            return input.ToString();
+        }
+        public static void CopyAssetProperties(Asset source, Asset target)
+        {
+            target.Id = source.Id;
+            target.Brand = source.Brand;
+            target.Model = source.Model;
+            target.DateOfPurchase = source.DateOfPurchase;
+            target.Price = source.Price;
+            target.Office = source.Office;  // Assuming you want to copy the reference, not a deep clone
+            target.OfficeId = source.OfficeId;
+            target.Status = source.Status;
+        }
+        public void UpdateAssets()
+        {
+            List<Asset> assetList = GetAssetList("Loading database....");
+            while (true)
+            {
+                var sortedAssets = SortAndPrintAssets(assetList, true);
+
+                Console.Write("\nWhich asset do you want to update? (Q to quit) ");
+                var numberString = PromptInput();
+                if (int.TryParse(numberString, out int parsedNumber))
+                {
+                    if (parsedNumber > 0 && parsedNumber <= sortedAssets.Count())
+                    {
+
+                        var asset = (Asset)sortedAssets[parsedNumber - 1];
+                        var assetCopy = (Asset)asset.Clone();
+
+                        PrintMainHeader();
+                        PrintOneAssetWithHeader(asset);
+                        var (assetType, brand, model, selectedOffice, purchaseDate, price) = AssetInput("Update product information (enter to skip field)", true);
+
+                        // Make a new asset and remove the old one if classtype is changed.
+                        if (assetType != "")
+                        {
+                            var fullTypeName = $"AssetTracking.{assetType}";
+                            Type? type = Type.GetType(fullTypeName);
+
+                            if (type != null && typeof(Asset).IsAssignableFrom(type))
+                            {
+                                // Create an instance of the type
+                                context.Assets.Remove(asset);
+                                asset = (Asset)Activator.CreateInstance(type)!;
+                                CopyAssetProperties(assetCopy, asset);
+
+                                context.Assets.Add(asset);
+                            }
+                        }
+
+                        if (brand != "" && brand != null)
+                            asset.Brand = brand;
+                        if (model != "" && model != null)
+                            asset.Model = model;
+                        if (brand != "" && brand != null)
+                            asset.DateOfPurchase = purchaseDate;
+                        if (price != -1)
+                            asset.Price = price;
+                        if (selectedOffice != null)
+                            asset.Office = selectedOffice;
+
+
+                        Console.Clear();
+                        PrintMainHeader();
+                        Console.WriteLine("\nOld data:\n");
+                        PrintOneAssetWithHeader(assetCopy);
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("\nUpdated data:\n");
+                        PrintOneAssetWithHeader(asset);
+
+                        if (AskUserConfirmation("\n\nDo you want to update the asset with new values?", "Update aborted."))
+                        {
+                            var updatedAsset = context.Assets.Update(asset);
+                            UpdateDatabase("Asset Updated in the database!", "Error updating asset in the database");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Error, number not in list");
+                        Console.ResetColor();
+                    }
+                }
+                else if (numberString.ToUpper() == "Q")
+                {
+                    break;
+                }
+            }
+
+        }
 
         public void DeleteAssets()
         {
@@ -141,7 +270,6 @@ namespace AssetTracking
                             UpdateDatabase("Asset deleted from database!", "Error deleting asset from DB");
                             return;
                         }
-
                     }
                     else
                     {
@@ -150,27 +278,20 @@ namespace AssetTracking
                         Console.ResetColor();
                     }
                 }
-                else if (numberString.ToUpper() == "Q")
+                else if (numberString!.ToUpper() == "Q")
                 {
-                    break;/*
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Not a valid number");
-                    Console.ResetColor();
-                    */
+                    break;
                 }
             }
         }
 
-
-        public void AddAssets()
+        public (string? type, string? brand, string? model, Office? office, DateTime choosenDate, int price) AssetInput(string title, bool withSkip = false)
         {
-            PrintMainHeader();
             Console.ForegroundColor = ConsoleColor.White;
             var assetTypes = Enum.GetValues(typeof(AssetType)).Cast<AssetType>().ToArray();
 
-            Console.WriteLine("--- Add asset --- ");
-            var assetType = "";
-
+            Console.WriteLine('\n' + title + '\n');
+            string? assetType = "";
             while (assetType == "")
             {
                 Console.Write("Select asset type: ");
@@ -184,7 +305,9 @@ namespace AssetTracking
                     index++;
                 }
                 Console.WriteLine(")");
-                var numberString = PromptInput();
+                var numberString = PromptInput(withSkip);
+                if (withSkip && numberString == "")
+                    break;
 
                 if (int.TryParse(numberString, out int parsedNumber))
                 {
@@ -209,14 +332,17 @@ namespace AssetTracking
             while (brand == "")
             {
                 Console.WriteLine("\nEnter brand");
-                brand = PromptInput();
-
+                brand = PromptInput(withSkip);
+                if (withSkip)
+                    break;
             }
             var model = "";
             while (model == "")
             {
                 Console.WriteLine("\nEnter model");
-                model = PromptInput();
+                model = PromptInput(withSkip);
+                if (withSkip)
+                    break;
             }
 
             var offices = context.Offices.OrderByDescending(elem => elem.Country).ToArray();
@@ -234,7 +360,9 @@ namespace AssetTracking
                 }
                 Console.WriteLine(")");
 
-                var numberString = PromptInput();
+                var numberString = PromptInput(withSkip);
+                if (withSkip && numberString == "")
+                    break;
                 if (int.TryParse(numberString, out int parsedNumber))
                 {
                     if (parsedNumber > 0 && parsedNumber <= offices.Count())
@@ -248,23 +376,32 @@ namespace AssetTracking
                 }
             }
 
-            string? dateInput;
-            DateTime choosenDate;
+            string? dateInput = null;
+            DateTime purchaseDate = DateTime.MinValue;
             do
             {
                 Console.Write("\nEnter purchase date: ");
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("(YYYY-MM-DD)");
-                dateInput = PromptInput();
+                dateInput = PromptInput(withSkip);
+                if (withSkip && dateInput == "")
+                    break;
 
-            } while (!DateTime.TryParse(dateInput, out choosenDate));
+            } while (!DateTime.TryParse(dateInput, out purchaseDate));
 
 
             int price = -1;
             while (price == -1)
             {
-                Console.WriteLine($"\nEnter Price({selectedOffice.Currency})");
-                var numberString = PromptInput();
+                if (selectedOffice != null)
+                    Console.WriteLine($"\nEnter Price({selectedOffice.Currency})");
+                else
+                    Console.WriteLine($"\nEnter Price");
+                var numberString = PromptInput(withSkip);
+                if (withSkip && numberString == "")
+                {
+                    break;
+                }
                 if (int.TryParse(numberString, out int parsedNumber))
                 {
                     if (parsedNumber >= 0)
@@ -284,6 +421,15 @@ namespace AssetTracking
                 }
             }
 
+            return (assetType, brand, model, selectedOffice, purchaseDate, price);
+        }
+
+        public void AddAssets()
+        {
+            PrintMainHeader();
+            Console.ForegroundColor = ConsoleColor.White;
+            var assetTypes = Enum.GetValues(typeof(AssetType)).Cast<AssetType>().ToArray();
+            var (assetType, brand, model, selectedOffice, purchaseDate, price) = AssetInput("Add new asset");
 
             Asset newAsset;
 
@@ -291,7 +437,7 @@ namespace AssetTracking
             var fullTypeName = $"AssetTracking.{assetType}";
 
             // Get the type object
-            var type = Type.GetType(fullTypeName);
+            Type? type = Type.GetType(fullTypeName);
 
             if (type != null && typeof(Asset).IsAssignableFrom(type))
             {
@@ -304,7 +450,7 @@ namespace AssetTracking
                 newAsset.OfficeId = selectedOffice.Id;
                 newAsset.Brand = brand!;
                 newAsset.Price = price;
-                newAsset.DateOfPurchase = choosenDate;
+                newAsset.DateOfPurchase = purchaseDate;
 
                 Console.WriteLine("\n");
                 Console.ForegroundColor = ConsoleColor.Yellow;
