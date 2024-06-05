@@ -1,4 +1,4 @@
-Tutor instructions for this exercize project:
+## This is an exercise project for my C# class, implemented according to the requirements below.
 
 # Asset Tracking with database and Entity Framework Core
 
