@@ -1,5 +1,15 @@
 ## This is an exercise project for my C# class, implemented according to the requirements below.
 
+# To start # 
+
+Create a .env file in the AssetTrackingDB folder. Add:
+MyConnectionString="your connection string"
+
+Do your db updates before running.
+
+
+
+
 # Asset Tracking with database and Entity Framework Core
 
 This project is the start of an Asset Tracking database.
