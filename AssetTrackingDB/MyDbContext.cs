@@ -10,7 +10,8 @@ namespace EntityDBTest
 {
   internal class MyDbContext : DbContext
   {
-    string connectionString = "Data Source=localhost;Initial Catalog=AssetTracker2;User ID=sa;Password=15Bajsmurklor!!;Trust Server Certificate=True";
+    string connectionString = Environment.GetEnvironmentVariable("MyConnectionString")!;
+
     //public DbSet<Asset> Assetts { set; get; }
     public DbSet<Asset> Assets { get; set; } = null!;
     public DbSet<Computer> Computers { get; set; } = null!;
@@ -25,8 +26,6 @@ namespace EntityDBTest
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-      //Console.WriteLine("OnModelCreating called");
-
       modelBuilder.Entity<Asset>()
           .HasDiscriminator<string>("AssetType")
           .HasValue<Computer>("Computer")

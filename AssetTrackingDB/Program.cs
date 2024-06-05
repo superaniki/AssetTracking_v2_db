@@ -4,7 +4,7 @@ using EntityDBTest;
 using Microsoft.EntityFrameworkCore;
 
 Console.WriteLine("Hello, World!");
-
+DotNetEnv.Env.Load();
 
 //Office office = context.Offices.Include(x => x.Assets).SingleOrDefault(x => x.Country == "Sweden");
 /*
