@@ -48,7 +48,7 @@ namespace AssetTracking
                 Console.WriteLine("3. Update Assets");
                 Console.WriteLine("4. Delete Assets");
                 Console.WriteLine("-------------------");
-                Console.WriteLine("5. Exit this boring app and go grow a carrot...!\n");
+                Console.WriteLine("5. Exit this boring app and grow a carrot\n");
                 Console.Write("> ");
                 input = Console.ReadLine();
 
